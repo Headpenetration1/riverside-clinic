@@ -8,6 +8,7 @@ from werkzeug.exceptions import HTTPException
 
 from .config import get_config, validate_secrets
 from .extensions import db
+from .services.cerebras import CerebrasClient
 from .services.csrf import csrf_token
 from .services.mailer import Mailer
 from .services.ratelimit import RateLimiter
@@ -39,6 +40,12 @@ def create_app(config_name: str | None = None, **overrides) -> Flask:
     db.init_app(app)
     app.extensions["limiter"] = RateLimiter()
     app.extensions["mailer"] = Mailer(app.logger)
+    app.extensions["cerebras"] = CerebrasClient(
+        api_key_getter=lambda: app.config.get("CEREBRAS_API_KEY"),
+        model=app.config["CEREBRAS_MODEL"],
+        url=app.config["CEREBRAS_API_URL"],
+        timeout=app.config["CEREBRAS_TIMEOUT"],
+    )
     app.logger.addFilter(RedactingFilter())
     app.jinja_env.globals["csrf_token"] = csrf_token
 
