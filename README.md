@@ -1,7 +1,11 @@
 # Riverside Clinic – secure patient document portal
 
-A small Flask application built for a DevSecOps assignment. Patients register,
-log in, upload documents (referral letters, previous test results) and ask a
+A small Flask application built for a DevSecOps assignment. The case study
+behind it is the 2018–2020 Vastaamo breach, in which a Finnish psychotherapy
+provider's patient database was stolen and its patients extorted; the portal
+is a reference implementation of the controls that were missing there, for a
+psychotherapy clinic of similar size. Patients register, log in, upload
+documents (referral letters, questionnaires, earlier assessments) and ask a
 Cerebras-backed assistant practical questions. Clinicians can read patient
 documents. Administrators manage accounts and deliberately have no access to
 clinical data.
