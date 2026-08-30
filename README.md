@@ -43,7 +43,7 @@ everything else keeps working.
 ## Tests and scans
 
 ```bash
-pytest -q                       # 85 tests
+python -m pytest -q             # 85 tests
 bandit -r app -ll               # static analysis
 pip-audit -r requirements.txt   # known-vulnerable dependencies
 ```
