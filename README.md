@@ -21,6 +21,7 @@ app/
 tests/           pytest suite (auth, reset, documents, SQLi, XSS, chatbot, pages/GDPR)
 scripts/seed.py  demo accounts (password from SEED_PASSWORD)
 .github/workflows/ci.yml   tests + bandit + pip-audit + gitleaks on every push
+docs/architecture-and-security.md   design rationale, request flows and limitations
 ```
 
 ## Running it
@@ -45,6 +46,15 @@ everything else keeps working.
 pytest -q                       # 85 tests
 bandit -r app -ll               # static analysis
 pip-audit -r requirements.txt   # known-vulnerable dependencies
+```
+
+The design and security choices are explained in
+[`docs/architecture-and-security.md`](docs/architecture-and-security.md).
+
+To create a clean submission archive containing only committed files:
+
+```bash
+git archive --format=zip --output=riverside-clinic-submission.zip HEAD
 ```
 
 ## API summary
