@@ -15,10 +15,12 @@ from flask import (
 
 from ..extensions import db
 from ..services import documents as docs
+from ..services import password_reset as recovery
 from ..services.auth import AuthError, authenticate, page_auth_required, register_user
 from ..services.cerebras import ChatUpstreamError
 from ..services.chat import ChatValidationError, validate_chat_input
 from ..services.csrf import validate_csrf
+from ..services.ratelimit import rate_limited
 from ..services.security import PasswordPolicyError, create_access_token
 from ..utils import clean_text, normalise_email
 from .chat import UNAVAILABLE, ask_assistant
@@ -94,6 +96,62 @@ def logout():
     validate_csrf()
     resp = make_response(redirect(url_for("pages.login")))
     resp.delete_cookie(current_app.config["AUTH_COOKIE_NAME"], path="/")
+    return resp
+
+
+# --- account recovery (A.3.3): the pages behind the emailed link ---------
+# GET and POST are separate view functions so the per-IP limit only counts
+# submissions, and the reset pages are never cached (the token is in the URL).
+
+@bp.get("/forgot-password")
+def forgot_password():
+    return render_template("forgot_password.html")
+
+
+@bp.post("/forgot-password")
+@rate_limited(5, 300)
+def forgot_password_submit():
+    validate_csrf()
+    email = normalise_email(request.form.get("email"))
+    if email is not None:
+        recovery.request_reset(email)
+    flash(recovery.GENERIC_MESSAGE, "ok")            # same answer whether or not the address exists
+    return redirect(url_for("pages.login"))
+
+
+def _reset_page(token, status=200):
+    resp = make_response(render_template("reset_password.html", token=token), status)
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
+@bp.get("/reset-password")
+def reset_password():
+    token = request.args.get("token", "")
+    if recovery.find_valid_token(token) is None:
+        return _reset_page(None, 400)
+    return _reset_page(token)
+
+
+@bp.post("/reset-password")
+@rate_limited(10, 300)
+def reset_password_submit():
+    validate_csrf()
+    token = request.form.get("token", "")
+    new_password = request.form.get("new_password", "")
+    if new_password != request.form.get("confirm_password", ""):
+        flash("The two passwords do not match.", "error")
+        return _reset_page(token, 400)
+    try:
+        recovery.reset_password(token, new_password)
+    except recovery.ResetTokenError:
+        return _reset_page(None, 400)
+    except PasswordPolicyError as exc:
+        flash(str(exc), "error")
+        return _reset_page(token, 400)
+    flash("Password updated. Please log in with your new password.", "ok")
+    resp = make_response(redirect(url_for("pages.login")))
+    resp.delete_cookie(current_app.config["AUTH_COOKIE_NAME"], path="/")   # this browser too
     return resp
 
 

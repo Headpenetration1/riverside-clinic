@@ -77,6 +77,25 @@ The forgot-password endpoint gives the same response whether an account
 exists or not. Reset tokens are random, time-limited and single-use, and only
 their hashes are stored. A successful reset revokes existing refresh sessions.
 
+The rules live in one service (`services/password_reset.py`) used by both the
+JSON endpoints and the HTML pages, so the two interfaces cannot drift apart.
+The pages follow the emailed link: `/forgot-password` asks for the address,
+`/reset-password?token=…` shows the new-password form only when the token is
+still valid, and both forms carry CSRF tokens and a per-IP rate limit. The
+reset pages are sent with `Cache-Control: no-store` and the site-wide
+`Referrer-Policy: no-referrer`, so the token in the URL does not end up in a
+cache or in another site's logs. A successful reset also clears the auth
+cookie of the browser that performed it.
+
+The link is built from `PUBLIC_BASE_URL` when it is configured, not from the
+request's `Host` header, which closes the classic host-header-poisoning attack
+on reset links. Mail goes out over SMTP when `SMTP_HOST` is set; a delivery
+failure is logged (recipient and subject only, never the body) and the
+endpoint still returns its generic answer, so an SMTP outage cannot be used
+to tell registered addresses from unknown ones. Without SMTP the development
+config writes the message to the log and the test config keeps it in an
+outbox.
+
 The data-export endpoint returns only the authenticated user's information.
 Account deletion removes the user, related database records and encrypted
 files. These flows support the data access and erasure requirements represented
@@ -96,7 +115,8 @@ system. Prompt injection and incorrect answers cannot be eliminated completely.
 
 ## Tests and CI
 
-The 85-test pytest suite covers authentication, token rotation, password reset,
+The 102-test pytest suite covers authentication, token rotation, password reset
+(API and pages), mail delivery,
 role and ownership checks, file validation and encryption, SQL injection, XSS,
 CSRF, security headers, chatbot boundaries, HTML flows, and data export and
 deletion. Each test uses an isolated SQLite database and upload directory.
@@ -111,8 +131,8 @@ Gitleaks history scanning, and a check that `.env` is not committed.
   deployment needs a managed database and migration tooling such as Alembic.
 - Rate limiting is in process memory. Multiple workers need a shared store such
   as Redis.
-- The mailer is a test outbox rather than an SMTP or transactional-email
-  integration.
+- Outgoing mail is sent synchronously over plain SMTP with no queue or retry;
+  a failed delivery is only logged.
 - The breached-password list is intentionally small; production should use a
   maintained service such as the HIBP k-anonymity API.
 - File checks are not antivirus or full content scanning.

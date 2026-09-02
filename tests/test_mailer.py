@@ -108,3 +108,14 @@ def test_mailer_backend_follows_configuration(tmp_path):
     with pytest.warns(UserWarning, match="SMTP_HOST"):
         prod = _app(tmp_path / "p", "production", **SECRETS)
     assert type(prod.extensions["mailer"]) is Mailer
+
+
+def test_console_mailer_output_is_visible_without_debug_mode(tmp_path, caplog):
+    """`flask run` without --debug leaves the app logger at WARNING, which would
+    silently swallow the only copy of the reset link a developer has."""
+    import logging
+    app = _app(tmp_path, "development", **SECRETS)
+    assert app.logger.isEnabledFor(logging.INFO)
+    with caplog.at_level(logging.INFO, logger=app.logger.name):
+        app.extensions["mailer"].send(to="a@example.com", subject="Reset", body="http://localhost/reset-password?token=abc")
+    assert "token=abc" in caplog.text

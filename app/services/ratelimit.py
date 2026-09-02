@@ -9,6 +9,7 @@ import time
 from functools import wraps
 
 from flask import current_app, jsonify, request
+from werkzeug.exceptions import TooManyRequests
 
 
 class RateLimiter:
@@ -50,6 +51,8 @@ def rate_limited(limit: int, window: int, key_func=None):
             ident = key_func() if key_func else request.remote_addr
             key = f"{view.__module__}.{view.__name__}:{ident}"
             if not get_limiter().hit(key, limit, window):
+                if not request.path.startswith("/api/"):    # HTML form: render the error page
+                    raise TooManyRequests(description="Too many requests, slow down", retry_after=window)
                 resp = jsonify({"error": "Too many requests, slow down"})
                 resp.status_code = 429
                 resp.headers["Retry-After"] = str(window)
