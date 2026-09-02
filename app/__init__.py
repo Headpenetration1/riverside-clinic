@@ -10,7 +10,7 @@ from .config import get_config, validate_secrets
 from .extensions import db
 from .services.cerebras import CerebrasClient
 from .services.csrf import csrf_token
-from .services.mailer import Mailer
+from .services.mailer import build_mailer
 from .services.ratelimit import RateLimiter
 
 
@@ -39,7 +39,7 @@ def create_app(config_name: str | None = None, **overrides) -> Flask:
 
     db.init_app(app)
     app.extensions["limiter"] = RateLimiter()
-    app.extensions["mailer"] = Mailer(app.logger)
+    app.extensions["mailer"] = build_mailer(app)
     app.extensions["cerebras"] = CerebrasClient(
         api_key_getter=lambda: app.config.get("CEREBRAS_API_KEY"),
         model=app.config["CEREBRAS_MODEL"],
@@ -84,7 +84,9 @@ def _register_handlers(app: Flask) -> None:
     def handle_http_error(exc: HTTPException):
         if request.path.startswith("/api/"):
             return jsonify({"error": exc.description if exc.code < 500 else exc.name}), exc.code
-        return render_template("error.html", code=exc.code, name=exc.name, description=exc.description), exc.code
+        page = render_template("error.html", code=exc.code, name=exc.name, description=exc.description)
+        headers = {"Retry-After": str(exc.retry_after)} if getattr(exc, "retry_after", None) else {}
+        return page, exc.code, headers
 
     @app.errorhandler(Exception)
     def handle_unexpected(exc: Exception):

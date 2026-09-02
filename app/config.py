@@ -43,6 +43,19 @@ class BaseConfig:
     CHAT_MAX_MESSAGE_CHARS = 1000
     CHAT_MAX_HISTORY = 10
 
+    # --- outgoing mail (password-reset links) ---
+    # Without SMTP_HOST nothing is delivered: development logs the message,
+    # testing keeps it in an outbox, production warns at start-up.
+    SMTP_HOST = os.environ.get("SMTP_HOST")
+    SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+    SMTP_USERNAME = os.environ.get("SMTP_USERNAME")
+    SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD")
+    SMTP_USE_TLS = os.environ.get("SMTP_USE_TLS", "true").lower() in ("1", "true", "yes")
+    MAIL_FROM = os.environ.get("MAIL_FROM", "noreply@riverside-clinic.example")
+    # Public origin used in emailed links (e.g. https://portal.example.org). Set it
+    # in production so a forged Host header cannot poison password-reset links.
+    PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL")
+
     # --- cookies (HTML interface) ---
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
@@ -80,6 +93,9 @@ class TestingConfig(BaseConfig):
     JWT_SECRET = "test-jwt-secret-not-for-production"
     FILE_ENCRYPTION_KEY = base64.b64encode(b"\x01" * 32).decode()
     CEREBRAS_API_KEY = "csk-test-key-0000000000000000"
+    # the suite must not pick up a developer's real mail settings
+    SMTP_HOST = None
+    PUBLIC_BASE_URL = None
 
 
 CONFIGS = {

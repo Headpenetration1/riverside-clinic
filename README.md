@@ -22,7 +22,7 @@ app/
   controllers/   Flask blueprints               (Controller)
   services/      hashing, tokens, file crypto, rate limiting, Cerebras client, audit
   config.py      settings; all secrets from the environment
-tests/           pytest suite (auth, reset, documents, SQLi, XSS, chatbot, pages/GDPR)
+tests/           pytest suite (auth, reset + reset pages, mailer, documents, SQLi, XSS, chatbot, pages/GDPR)
 scripts/seed.py  demo accounts (password from SEED_PASSWORD)
 .github/workflows/ci.yml   tests + bandit + pip-audit + gitleaks on every push
 docs/architecture-and-security.md   design rationale, request flows and limitations
@@ -44,10 +44,16 @@ To try the assistant, put a key from https://cloud.cerebras.ai in
 `CEREBRAS_API_KEY`. Without one the endpoint answers 502 "unavailable" and
 everything else keeps working.
 
+Password-reset links are sent by email. In development, with no `SMTP_HOST`
+set, the whole message is written to the server log instead, so you can copy
+the link from there and finish the flow in the browser. For real delivery fill
+in the `SMTP_*` settings in `.env`, and set `PUBLIC_BASE_URL` to the portal's
+public origin so that links never depend on the request's `Host` header.
+
 ## Tests and scans
 
 ```bash
-python -m pytest -q             # 85 tests
+python -m pytest -q             # 102 tests
 bandit -r app -ll               # static analysis
 pip-audit -r requirements.txt   # known-vulnerable dependencies
 ```
@@ -76,4 +82,6 @@ git archive --format=zip --output=riverside-clinic-submission.zip HEAD
 
 All API calls use `Authorization: Bearer <access token>`. Access tokens live
 15 minutes; refresh tokens rotate on every use and can be revoked.
-The HTML pages under `/` use an HttpOnly cookie plus CSRF tokens instead.
+The HTML pages under `/` use an HttpOnly cookie plus CSRF tokens instead:
+`/register`, `/login`, `/forgot-password`, `/reset-password?token=…` (the
+emailed link), `/dashboard`, `/board` and `/chat`.
